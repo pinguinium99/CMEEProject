@@ -1,2 +1,0 @@
-# CMEEProject
-Mres Project repository

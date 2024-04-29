@@ -1,0 +1,219 @@
+---
+title: "Project 2024"
+author: "Prannoy T"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Project Markdown
+
+Critera
+
+Extinction is a chance process. Thus, a listing in a higher extinction risk category implies a higher expectation of extinction, and over the time-frames specified more taxa listed in a higher category are expected to go extinct than those in a lower one (without effective conservation action). However, the persistence of some taxa in high-risk categories does not necessarily mean their initial assessment was inaccurate.All taxa listed as Critically Endangered qualify for Vulnerable and Endangered, and all listed as Endangered qualify for Vulnerable. Together these categories are described as ‘threatened’. The threatened categories form a part of the overall scheme. It will be possible to place all taxa into one of the categories (see Figure 1).
+
+```{r matrix}
+
+matrix_start <- function(nspecies,population,row) {
+    my_matrix <- matrix(sample( 
+  1 : nspecies, population, replace = TRUE), nrow = row) # should i use sqrt for rows? probably yes
+return(my_matrix)
+}
+my_matrix <- matrix_start(40,400,20) # the matrix must be have a whole number as a square root
+my_matrix
+```
+
+
+```{r speciation}
+#provides the speciation based on a speciation rate provided, protracted speciation is another option being considered
+speciation_fun <- function(matrix,speciation_rate,deadx,deady){
+    z <- max(unique(matrix))
+    matrix[deadx,deady]= z+1
+    return(matrix)
+}
+
+spec_test <- matrix_start(10,100,10)
+speciation_fun(spec_test,0.5,5,5)
+```
+
+```{r neutral step}
+# conducts the neutral step for one individual
+replacfun <- function(mat,sd,speciation_rate){    
+    deadx <- round(runif(1,1,sqrt(length(mat))))
+    deady <- round(runif(1,1,sqrt(length(mat))))
+    #print(mat[deadx,deady])
+    spec <- runif(1,0,1)
+    if(spec > speciation_rate){
+    x <- round(rnorm(1, mean = 0, sd = sd))
+        #print(x)
+    y <- round(rnorm(1, mean = 0, sd = sd))
+        #print(y)
+    if(sqrt(length(mat)) <= (deadx + x) | (deadx + x) <= 1 | sqrt(length(mat)) <= (deady + y) | (deady + y) <= 1 ){ 
+      # makes sure replacement individual is in the matrix
+        while(sqrt(length(mat)) <= (deadx + x) | (deadx + x) <= 1 | sqrt(length(mat)) <= (deady + y) | (deady + y) <= 1 ){
+            x <- round(rnorm(1, mean = 0, sd = sd))
+        #print(x)
+        y <- round(rnorm(1, mean = 0, sd = sd))
+        #print(y)
+            }
+            #print(x)
+    mat[deadx,deady] <- mat[deadx + x,deady + y]
+    #print(mat[deadx,deady])
+        
+    }else{
+    #print(x)
+    mat[deadx,deady] <- mat[deadx + x,deady + y]
+    #print(mat[deadx,deady])
+    }
+    return(mat)  
+}else{
+        mat <- speciation_fun(mat,speciation_rate,deadx,deady) # introduces a new species instead of replacement
+    }
+}
+
+```
+
+
+```{r Initialise zero}
+#initialises a matrix of zeros to fill empty spots
+zerolist <- function(time,n_sp){
+    x <- list()
+       for (i in 1:n_sp){
+        x[i] <- list(rep(0,time))
+    } 
+    return(x)
+}
+```
+
+```{r neutral walk}
+#records the abundance of each species at each generation for "time" number of generations
+multigensp <- function(time,mat,sd,speciation_rate){
+    x <- zerolist(time,length(unique(as.vector(mat))))
+    first <- table(mat)
+    sp1 <- sort(unique(as.vector(mat)))
+          for(k in sp1){
+              name <- names(first)
+              index <- which(name == k)
+          x[[k]][1]<- first[index]
+       }
+        for(i in 1:time){
+        for(j in 1:(length(mat)/2)){ # one generation = half the individuals getting replaced
+            mat <- replacfun(mat,sd,speciation_rate)
+        }
+            y <- table(mat)
+            sp <- sort(unique(as.vector(mat)))
+            if (max(sp) > max(sp1)){
+            newsp <- (max(sp) - max(sp1))
+            x <- append(x,(zerolist(time,newsp)))
+            }
+            for(k in sp){
+             name <- names(y)
+              index <- which(name == k)
+          x[[k]][i]<- y[index]# calling table index not the value of sp
+                #print(i)
+            }
+            sp1 <- sp
+            }
+    return(x)
+    }
+multigensp(50,my_matrix,4,0.03)
+```
+```{r}
+# dataframe for graphing purposes (to check the simulation is functioning)
+dummydat <- multigensp(50,my_matrix,4,0.03)
+
+# Convert list to dataframe
+my_df <- data.frame(do.call(cbind, dummydat))
+
+# Print the dataframe
+
+name <- vector()
+for (i in 1:ncol(my_df)){
+        name[i] <- paste0("species",i)
+    } 
+t <- (1:nrow(my_df))
+my_df <- cbind(my_df,t)
+name[length(name)+1] <- "time"
+colnames(my_df) <- name
+print(my_df)
+
+```
+
+```{r}
+library(ggplot2)
+
+for (i in 1:(ncol(my_df)-1)) {
+p  <- ggplot(data = my_df, aes(x = time, y = my_df[,i]))+
+  geom_line()
+  print(p)
+}
+```
+```{r remove species present for less than three generations}
+
+rm_sp <- function(df){
+    df <- df[, sapply(df, function(col) sum(col > 0)) > 3] 
+    return(df)
+}
+ my_df <- rm_sp(my_df)
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+criteria_a <- function(data){
+    fulldf <- data.frame(rep(0,((nrow(data))-3)))
+    for(i in 1:(ncol(data)-1)){
+        abundance_change <- c()
+        percentage_change <- c()
+        status <- c()
+        for(j in 1:(nrow(data)-3)){
+            # print(j)
+            x <- data[j,i]
+           # print(x)
+            
+            x_plus_3 <- data[(j+3),i]
+            #print(x_plus_3)
+            abundance_change[j] <- x - x_plus_3
+            if(x == x_plus_3){
+                percentage_dif <- 0
+            } else{
+                percentage_dif <- (((x - x_plus_3)/x)*100)
+            }
+            percentage_change[j] <- percentage_dif
+            print(percentage_dif)
+            print(j)
+            if (percentage_dif <= -90){
+               # print("critical")
+                status [j] <- "critical" 
+            } else if (percentage_dif <= -70){
+                #print("endangered")
+                 status [j] <- "endangered" 
+        } else if (percentage_dif <= -50){
+                #print("vulnrable")
+                status [j] <- "vulnrable"
+        } else if (x == 0){
+                #print("extinct")
+                status [j]<- "extinct"# 
+                } else{
+                status[j]<- "least_concern" # Na caused by first value since no status
+                }
+        }
+        #print(data[,i])
+        print(abundance_change)
+        #print(status)
+        sp <- c(status)
+        fulldf[,i] <- sp
+        }
+     return(fulldf)
+    }
+roc_dat<- criteria_a(my_df)
+```
+
