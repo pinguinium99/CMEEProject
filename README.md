@@ -62,19 +62,6 @@ Results were communicated using publication-quality figures and interactive visu
 * Jupyter Notebooks
 * Linux
 
-## Repository Structure
-
-```text
-CMEEProject/
-│
-├── code/               # Source code and simulation scripts
-├── data/               # Input and generated datasets
-├── results/            # Analysis outputs and figures
-├── notebooks/          # Exploratory analyses and visualisations
-├── docs/               # Project documentation
-└── README.md
-```
-
 ## Key Skills Demonstrated
 
 * Scientific programming
